@@ -138,7 +138,7 @@ export default function Page() {
     <Wrap>
       <Header>
         <Title>간병인보험 손익분기점 계산기</Title>
-        <Desc></Desc>
+        <Desc>ver.1.0.001</Desc>
       </Header>
 
       <Grid>
