@@ -7,7 +7,7 @@ type LifelongBasis = 90 | 100;
 
 type FormState = {
   name: string;
-  age: string; // 입력 편의상 string
+  age: string; // string 입력
   monthlyPremium: string;
   payCount: string;
   lifelongBasis: LifelongBasis;
@@ -29,15 +29,50 @@ function onlyDigits(v: string) {
   return v.replace(/[^\d]/g, '');
 }
 
-function toKRW(n: number) {
-  return `${Math.floor(n).toLocaleString('ko-KR')}원`;
-}
-
 function safeInt(v: string) {
   if (!v) return null;
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
   return Math.floor(n);
+}
+
+function toKRW(n: number) {
+  return `${Math.floor(n).toLocaleString('ko-KR')}원`;
+}
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function diffDays(a: Date, b: Date) {
+  // b - a (일 단위)
+  const ms = startOfDay(b).getTime() - startOfDay(a).getTime();
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * 현재 나이만 있는 상황에서 "남은 일수"를 추정:
+ * - 오늘을 기준으로 'age'를 만족하는 생일을 가정(=오늘 - age년)
+ * - 그 생년을 기반으로, (생년 + 종신나이) 해의 12/31까지 남은 일수
+ */
+function calcRemainingDaysToDec31OfLifelongAge(age: number, lifelongBasis: LifelongBasis) {
+  const today = new Date();
+
+  // 오늘 기준 정확히 age가 되도록 생일을 가정
+  const assumedBirth = new Date(today);
+  assumedBirth.setFullYear(today.getFullYear() - age);
+
+  const targetYear = assumedBirth.getFullYear() + lifelongBasis;
+  const target = new Date(targetYear, 11, 31); // Dec 31
+
+  const remaining = diffDays(today, target);
+  return {
+    remainingDays: Math.max(0, remaining),
+    targetYear,
+    targetDateText: `${targetYear}.12.31`,
+  };
 }
 
 function calcErrors(form: FormState): FieldErrors {
@@ -54,7 +89,6 @@ function calcErrors(form: FormState): FieldErrors {
   if (form.payCount && (count === null || count < 0)) errors.payCount = '납입 횟수는 0 이상 정수로 입력해주세요.';
   if (form.dailyPay && (daily === null || daily < 1)) errors.dailyPay = '일 지급 금액은 1 이상 정수로 입력해주세요.';
 
-  // 종신 기준은 90/100만 허용
   if (form.lifelongBasis !== 90 && form.lifelongBasis !== 100) {
     errors.lifelongBasis = '종신 기준은 90 또는 100만 선택할 수 있어요.';
   }
@@ -75,8 +109,22 @@ export default function Page() {
     const breakEvenDays = daily && daily > 0 ? Math.floor(totalPremium / daily) : null;
     const breakEvenMonths = breakEvenDays !== null ? Math.floor(breakEvenDays / 30) : null;
 
-    return { monthly, count, daily, totalPremium, breakEvenDays, breakEvenMonths };
-  }, [form.monthlyPremium, form.payCount, form.dailyPay]);
+    const age = safeInt(form.age);
+
+    const remaining =
+      age !== null ? calcRemainingDaysToDec31OfLifelongAge(age, form.lifelongBasis) : null;
+
+    return {
+      monthly,
+      count,
+      daily,
+      totalPremium,
+      breakEvenDays,
+      breakEvenMonths,
+      age,
+      remaining,
+    };
+  }, [form.monthlyPremium, form.payCount, form.dailyPay, form.age, form.lifelongBasis]);
 
   const isCalcReady =
     Object.keys(errors).length === 0 &&
@@ -89,7 +137,6 @@ export default function Page() {
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const value = e.target.value;
 
-      // 숫자 필드들은 숫자만
       if (key === 'age' || key === 'monthlyPremium' || key === 'payCount' || key === 'dailyPay') {
         setForm((prev) => ({ ...prev, [key]: onlyDigits(value) }));
         return;
@@ -107,24 +154,28 @@ export default function Page() {
   const reset = () => setForm(DEFAULT_FORM);
 
   const copyResult = async () => {
-    const namePart = form.name ? `${form.name}님 ` : '';
-    const agePart = form.age ? `현재 나이: ${form.age}세\n` : '';
-    const total = toKRW(numbers.totalPremium);
+    const namePart = form.name ? `${form.name}님\n` : '';
+    const agePart = numbers.age !== null ? `현재 나이: ${numbers.age}세\n` : '';
 
+    const total = toKRW(numbers.totalPremium);
     const breakEven =
-      numbers.breakEvenDays === null
-        ? '계산 불가(일 지급 금액 확인)'
-        : `${numbers.breakEvenDays}일(${numbers.breakEvenMonths}달)`;
+      numbers.breakEvenDays === null ? '계산 불가(일 지급 금액 확인)' : `${numbers.breakEvenDays}일(${numbers.breakEvenMonths}달)`;
+
+    const remainingText =
+      numbers.remaining && numbers.age !== null
+        ? `앞으로 남은 날(추정): 종신 ${form.lifelongBasis}세 기준 ${numbers.remaining.targetDateText}까지 ${numbers.remaining.remainingDays}일\n`
+        : '';
 
     const text =
-      `${namePart}간병인보험 손익분기점 결과\n` +
+      `${namePart}간병인보험 손익분기점 계산 결과\n` +
       agePart +
       `월보험료: ${toKRW(numbers.monthly)}\n` +
       `납입 횟수: ${numbers.count}회\n` +
       `종신 기준: ${form.lifelongBasis}\n` +
-      `일 지급 금액: ${numbers.daily ? toKRW(numbers.daily) : '-'} / 일\n` +
+      `일 지급 금액: ${numbers.daily ? `${toKRW(numbers.daily)} / 일` : '-'}\n` +
       `총보험료: ${total}\n` +
-      `손익분기: ${breakEven}`;
+      `손익분기: ${breakEven}\n` +
+      remainingText;
 
     try {
       await navigator.clipboard.writeText(text);
@@ -134,11 +185,23 @@ export default function Page() {
     }
   };
 
+  const breakEvenSentence = useMemo(() => {
+    if (numbers.breakEvenDays === null) return null;
+
+    // “앞으로 살아갈 날” 계산이 가능한 경우
+    if (numbers.remaining) {
+      return `앞으로 남은 날 대비, ${numbers.breakEvenDays.toLocaleString('ko-KR')}일만 입원하면 손익분기점에 도달해요.`;
+    }
+
+    // 나이를 안 넣었을 때도 문구는 보여주되, 남은 날 대비 표현은 제외
+    return `${numbers.breakEvenDays.toLocaleString('ko-KR')}일만 입원하면 손익분기점에 도달해요.`;
+  }, [numbers.breakEvenDays, numbers.remaining]);
+
   return (
     <Wrap>
       <Header>
         <Title>간병인보험 손익분기점 계산기</Title>
-        <Desc>ver.1.0.001</Desc>
+        <Desc>ver.1.0.002</Desc>
       </Header>
 
       <Grid>
@@ -154,12 +217,7 @@ export default function Page() {
 
             <Field>
               <Label>현재 나이</Label>
-              <Input
-                inputMode="numeric"
-                value={form.age}
-                onChange={handleChange('age')}
-                placeholder="예) 45"
-              />
+              <Input inputMode="numeric" value={form.age} onChange={handleChange('age')} placeholder="예) 45" />
               {errors.age ? <Error>{errors.age}</Error> : <Helper>숫자만 입력</Helper>}
             </Field>
 
@@ -180,12 +238,7 @@ export default function Page() {
 
             <Field>
               <Label>납입 횟수</Label>
-              <Input
-                inputMode="numeric"
-                value={form.payCount}
-                onChange={handleChange('payCount')}
-                placeholder="예) 240"
-              />
+              <Input inputMode="numeric" value={form.payCount} onChange={handleChange('payCount')} placeholder="예) 240" />
               {errors.payCount ? <Error>{errors.payCount}</Error> : <Helper>숫자만 입력</Helper>}
             </Field>
 
@@ -195,17 +248,12 @@ export default function Page() {
                 <option value="90">90</option>
                 <option value="100">100</option>
               </Select>
-              {errors.lifelongBasis ? <Error>{errors.lifelongBasis}</Error> : <Helper>현재는 90/100 고정</Helper>}
+              <Helper>현재는 90/100 고정</Helper>
             </Field>
 
             <Field>
               <Label>일 지급 금액</Label>
-              <Input
-                inputMode="numeric"
-                value={form.dailyPay}
-                onChange={handleChange('dailyPay')}
-                placeholder="예) 150000"
-              />
+              <Input inputMode="numeric" value={form.dailyPay} onChange={handleChange('dailyPay')} placeholder="예) 150000" />
               {errors.dailyPay ? (
                 <Error>{errors.dailyPay}</Error>
               ) : (
@@ -248,15 +296,34 @@ export default function Page() {
               </V>
             </ResultRow>
 
+            {/* ✅ 새 문구/영역 */}
+            {numbers.breakEvenDays !== null && (
+              <BreakEvenCallout>
+                <CalloutTitle>한 줄 요약</CalloutTitle>
+                <CalloutText>{breakEvenSentence}</CalloutText>
+
+                {numbers.remaining ? (
+                  <CalloutSub>
+                    종신 {form.lifelongBasis}세 기준 <b>{numbers.remaining.targetDateText}</b>까지 약{' '}
+                    <b>{numbers.remaining.remainingDays.toLocaleString('ko-KR')}일</b> 남았다고 가정해요.
+                    <br />
+                    {/* <Hint>* 생일 정보가 없어서 “오늘 기준 나이를 만족하는 생일”로 추정해 계산합니다.</Hint> */}
+                  </CalloutSub>
+                ) : (
+                  <CalloutSub>
+                    <Hint>* “앞으로 남은 날 대비” 계산을 보려면 현재 나이를 입력해주세요.</Hint>
+                  </CalloutSub>
+                )}
+              </BreakEvenCallout>
+            )}
+
             <Note>
               * 손익분기 일수 = ⌊총보험료 ÷ 일 지급 금액⌋, 개월 = ⌊일수 ÷ 30⌋ 기준
             </Note>
           </ResultBox>
 
           <Summary>
-            <SummaryTitle>
-              {form.name ? `${form.name}님의 입력 요약` : '입력 요약'}
-            </SummaryTitle>
+            <SummaryTitle>{form.name ? `${form.name}님의 입력 요약` : '입력 요약'}</SummaryTitle>
             <SummaryList>
               <li>현재 나이: {form.age ? `${form.age}세` : '-'}</li>
               <li>월보험료: {form.monthlyPremium ? toKRW(Number(form.monthlyPremium)) : '-'}</li>
@@ -474,6 +541,45 @@ const Muted = styled.span`
   font-size: 13px;
   opacity: 0.75;
   font-weight: 600;
+`;
+
+// ✅ 새 콜아웃 스타일
+const BreakEvenCallout = styled.div`
+  margin-top: 12px;
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+`;
+
+const CalloutTitle = styled.div`
+  font-size: 12px;
+  opacity: 0.8;
+  font-weight: 700;
+  margin-bottom: 6px;
+`;
+
+const CalloutText = styled.div`
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 700;
+`;
+
+const CalloutSub = styled.div`
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.8;
+  line-height: 1.45;
+
+  b {
+    opacity: 0.95;
+  }
+`;
+
+const Hint = styled.span`
+  display: inline-block;
+  margin-top: 4px;
+  opacity: 0.75;
 `;
 
 const Summary = styled.div`
