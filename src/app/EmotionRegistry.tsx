@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
+import type { EmotionCache } from '@emotion/cache';
 import { useServerInsertedHTML } from 'next/navigation';
 
 function createEmotionCache() {
@@ -14,16 +15,19 @@ export default function EmotionRegistry({ children }: { children: React.ReactNod
     const cache = createEmotionCache();
     cache.compat = true;
 
-    const prevInsert = cache.insert;
+    // ✅ insert 함수 타입/튜플 파라미터 타입을 정확히 가져옴
+    const prevInsert = cache.insert as EmotionCache['insert'];
+    type InsertArgs = Parameters<EmotionCache['insert']>;
+
     let inserted: string[] = [];
 
-    cache.insert = (...args: any[]) => {
-      const serialized = args[1];
+    cache.insert = ((...args: InsertArgs) => {
+      const serialized = args[1]; // SerializedStyles
       if (cache.inserted[serialized.name] === undefined) {
         inserted.push(serialized.name);
       }
-      return prevInsert(...args);
-    };
+      return prevInsert(...args); // ✅ 이제 args가 튜플이라 에러 없음
+    }) as EmotionCache['insert'];
 
     const flush = () => {
       const prev = inserted;
