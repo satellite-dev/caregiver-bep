@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: '%s | 보험 계산기',
   },
   description: '보험 관련 계산을 간편하게 제공하는 웹 계산기',
-  manifest: '/manifest.webmanifest',
+  manifest: '/manifest-caregiver.webmanifest',
   appleWebApp: {
     capable: true,
     title: '보험 계산기',
