@@ -1,7 +1,7 @@
 {
   "id": "/pwa/caregiver",
-  "name": "장기요양 치매 보험계산기 | 보험 계산기",
-  "short_name": "장기요양 치매 보험 계산기",
+  "name": "간병인 보험계산기 | 보험 계산기",
+  "short_name": "간병인 보험 계산기",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
