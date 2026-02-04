@@ -1,4 +1,4 @@
-const CACHE_NAME = 'caregiver-bep-v1';
+const CACHE_NAME = 'insurance-calculator-v1';
 const APP_SHELL = ['/', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
