@@ -1,0 +1,22 @@
+{
+  "id": "/pwa/cancer-diagnosis",
+  "name": "3대 질병 진단비 계산기",
+  "short_name": "진단비",
+  "start_url": "/cancer-diagnosis",
+  "scope": "/cancer-diagnosis",
+  "display": "standalone",
+  "background_color": "#0b0c10",
+  "theme_color": "#0b0c10",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
