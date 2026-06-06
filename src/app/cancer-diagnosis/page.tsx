@@ -401,10 +401,10 @@ export default function Page() {
 }
 
 const ResultDesc = styled.div`
-  margin-top: 6px;
+  margin-top: 10px;
   font-size: 12px;
-  line-height: 1.45;
-  opacity: 0.72;
+  line-height: 1.55;
+  opacity: 0.78;
 `;
 
 const InputSection = styled.div`
@@ -418,8 +418,8 @@ const InputSection = styled.div`
 `;
 
 const Formula = styled.div`
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 12px;
-  line-height: 1.45;
-  opacity: 0.62;
+  line-height: 1.5;
+  opacity: 0.68;
 `;
